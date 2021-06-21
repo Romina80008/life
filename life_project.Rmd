@@ -1,0 +1,227 @@
+---
+title: "PREDICTING SALES IN ONE OF THE BIGGEST ECUADORIAN PHARMACEUTICAL INDUSTRIES - LIFE"
+author: "Romina Jaramillo"
+date: "27/4/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# importing libraries
+
+library(tidyverse)
+library(caret)
+library(readxl)
+library(ggrepel)
+
+trainData1 <- read_excel("C://Users/romin/Dropbox/EDX/ProyectoFinal/trainData1.xlsx",
+
+##trainData1 <- read_excel("trainData1.xlsx", 
+    col_types = c("text", "text", "text", 
+        "numeric", "date", "numeric"))
+View(trainData1)
+
+library(readxl)
+## trainData2 <- read_excel("C://Users/prjaramillo/Dropbox/EDX/ProyectoFinal/trainData2.xlsx",
+
+ trainData2 <- read_excel("C://Users/romin/Dropbox/EDX/ProyectoFinal/trainData2.xlsx", 
+    col_types = c("text", "text", "text", 
+        "numeric", "date", "numeric"))
+View(trainData2)
+
+trainingData <- merge(x=trainData1, y=trainData2 , by= c("PROVINCE","PRESENTATION","LABORATORY", "YEAR", "MONTH"), all.x = TRUE)
+
+
+testData <- read_excel("C://Users/romin/Dropbox/EDX/ProyectoFinal/testData.xlsx")
+
+```
+
+
+## Introduction 
+LIFE is one of the 10 biggest Ecuadorian Pharmaceutical Industries in the country. It has been part of the ecuadorians life since 1940. This project pretends to apply regression analysis in order to predict the sales of the next years based on the previous ones. 
+
+This project works with two data sets, the first one is the training data that contains information between 2016 and 2019. And the other is the validation data set that contains information of 2020 and beginings of 2021.
+
+
+The data structure contains 7 columns. The columns are: \newline
+
+1. Province: Ecuador is divided in 24 provinces (states) that are: 
+
+```{r provinces, echo=TRUE}
+unique(trainingData$PROVINCE)
+```
+
+
+2. Presentation: each laboratory has their own product presentation. For example, one presentation of LIFE´s products for headaches is "BUPREXMIGRA TABL RECUB. x 20"; But, for the competence it is "MIGRA DORIXINA TABL x 20". We are analyzing the star product of the company (LIFE) known as "BUPREXMIGRA"
+
+
+```{r presentation, echo=TRUE}
+unique(trainingData$PRESENTATION)
+```
+
+3. Laboratory: LIFE has considered 5 companies as competence. In total 6 laboratories
+
+```{r laboratory, echo=TRUE}
+unique(trainingData$LABORATORY)
+```
+
+
+4. Year: for the training data, we are going to analyze the information between 2016 and 2019 \newline
+5. Month: 12 months  \newline
+6. Unit Sales: value in USD of the sales registrated \newline
+7. RX: represents the number of prescriptions in each month for that presentation. 
+
+
+A glimpse of our data is shown below: \newline
+```{r glimpse_trainingData, echo=TRUE}
+glimpse(trainingData)
+```
+
+## Data Overview 
+
+The structure of the data is described above.
+
+```{r data_structure, echo=TRUE}
+str(trainingData)
+```
+
+The sales over the years has increased from around 80k to over 115k for the migraine market.  Presenting the behaviour of sales units over the years: 
+
+```{r sales, echo=TRUE}
+## presenting all the sales accumulated per month since 2016 to December 2019
+trainingData %>% group_by(MONTH) %>% summarize( amount = sum(`SALES UNITS`)) %>% 
+  ggplot(aes(MONTH,amount)) + geom_line()
+```
+
+As mentioned in the introduction, this project is evaluating 6 compaies and their product version for the same patology (Migraine). In this chart we can see which segment of the whole market is taken by each product:
+
+```{r presentations, echo=TRUE}
+## Market Share of each product 
+trainingData %>% group_by(PRESENTATION) %>% 
+summarize( amount = sum(`SALES UNITS`)) %>% 
+ggplot(aes(x="",y=amount,fill=PRESENTATION)) + 
+geom_bar(stat="identity", width=1) + coord_polar("y", start=0) + theme_void()
+
+## Amount of sales per presentation
+trainingData %>% group_by(PRESENTATION) %>% 
+summarize( amount = sum(`SALES UNITS`))
+
+```
+
+Now, we are going to analyze the sales per province for the 3 laboratories with the best sales rate.
+
+```{r SALES_LIFE_PROVINCE, echo=TRUE}
+# plot sales per province for LIFE laboratories 
+trainingData %>% filter(LABORATORY=="LIFE") %>% 
+  ggplot(aes(MONTH,`SALES UNITS`, group = PROVINCE, color = PROVINCE )) + 
+  geom_line() + 
+  geom_label_repel(data = subset(trainingData, trainingData$MONTH == 
+                                   max(trainingData$MONTH) & trainingData$LABORATORY == "LIFE"),aes(label = PROVINCE),size=1, nudge_x = 45, segment.color = NA) + theme(legend.position="bottom")
+```
+
+In LIFE Laboratories, the best sales range correspond to the Guayas province
+
+
+```{r SALES_LABORATORY_PROVINCE, echo=TRUE}
+# plot sales per province for MEGALABS laboratories 
+trainingData %>% filter(LABORATORY=="MEGALABS") %>% 
+  ggplot(aes(MONTH,`SALES UNITS`, group = PROVINCE, color = PROVINCE )) + 
+  geom_line() +  
+  geom_label_repel(data = subset(trainingData, trainingData$MONTH == max(trainingData$MONTH) &
+                                   trainingData$LABORATORY == "MEGALABS"),aes(label =
+  PROVINCE),size=1, nudge_x = 45, segment.color = NA) +
+  theme(legend.position="bottom")
+```
+
+Similarly, MEGALABS and their product for Migraine has a consistent position in the Guayas province market. 
+
+```{r SALES_SAVAL_PROVINCE, echo=TRUE}
+# plot sales per province for JAMES BROWN PHARMA laboratories 
+trainingData %>% filter(LABORATORY=="JAMES BROWN PHARMA") %>% 
+  ggplot(aes(MONTH,`SALES UNITS`, group = PROVINCE, color = PROVINCE )) + 
+  geom_line() +  geom_label_repel(data = subset(trainingData, trainingData$MONTH == max(trainingData$MONTH) & 
+  trainingData$LABORATORY == "JAMES BROWN PHARMA"),aes(label = PROVINCE),size=1, nudge_x = 45, 
+  segment.color = NA) +theme(legend.position="bottom")
+```
+
+On the other hand, JAMES BROWN PHARMA Company best sales correspond to Manabi province.
+
+## Methods
+
+In this project, we will use two models. First, as the Professor Ragazzi taught us, Linear regression is the perfect model to predict some Y values based on X values. 
+
+Predicting sales based on the historical data using linear regression: 
+
+```{r SALES_PREDICTED_TIME, echo=TRUE}
+all_sales <- trainingData %>% group_by(MONTH) %>% summarize( amount = sum(`SALES UNITS`)) 
+linearModel2 = lm(amount ~ MONTH , data= all_sales)
+plot(amount ~ MONTH , data= all_sales)
+abline(linearModel2)
+
+## Summary
+summary(linearModel2)
+
+
+##training our model 
+modelFit <- train(amount ~ MONTH , data = all_sales)
+modelFit
+
+
+```
+
+
+Now we are going to apply the linear regression in the test set 
+```{r SALES_PREDICTION, echo=TRUE}
+
+all_sales_test <- testData %>% group_by(MONTH) %>% summarize( amount = sum(`SALES UNITS`)) 
+linearModel3 = lm(amount ~ MONTH , data= all_sales_test)
+plot(amount ~ MONTH , data= all_sales_test)
+abline(linearModel3)
+
+## Summary
+summary(linearModel3)
+
+## test Data
+modelFit2 <- train(amount ~ MONTH , data = all_sales_test)
+modelFit2
+
+```
+
+Comparing the 2 data sets: 
+
+```{r SALES_COMPARISON_2, echo=TRUE}
+
+par(mfrow=c(1,2))
+plot(all_sales$MONTH,all_sales$amount)
+lines(all_sales$MONTH,predict(linearModel2),lwd=3)
+
+plot(all_sales_test$MONTH,all_sales_test$amount)
+lines(all_sales_test$MONTH,predict(linearModel3),lwd=3)
+
+```
+
+
+## Results
+
+
+We fit our regression model to predict de amount of sales based on time. We have the followings RMSE values 
+```{r SALES_RMSE, echo=TRUE}
+modelFit
+modelFit2
+
+```
+
+
+## Conclusion 
+
+1. The relationship between "Sales Units" and "RX" prescriptions is not linear. 
+2. We can conclude that the linear model is not perfectly accurate because it has a high RMSE.
+3. The RMSE shows us how far from the regression line is our data.
+4. The data is not concentrated around the line of best fit 
+
+
+## Vocabulary
+
+Migraine: A migraine is usually a moderate or severe headache felt as a throbbing pain on 1 side of the head.
+
